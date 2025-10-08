@@ -270,7 +270,27 @@
 
     <!-- Hidden file input for import -->
     <input type="file" id="hiddenFileInput" style="display: none;" accept=".json,.csv">
+    <script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+  import { getAuth } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+  import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
+  // Replace with your actual Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyD0fCY4dwc0igmcTYJOU2rRGQ0ERSVz2l4",
+  authDomain: "daily-work-log-tracker.firebaseapp.com",
+  projectId: "daily-work-log-tracker",
+  storageBucket: "daily-work-log-tracker.firebasestorage.app",
+  messagingSenderId: "891051391167",
+  appId: "1:891051391167:web:1050e984fa86b4d070ee0a",
+  measurementId: "G-3X0E8CJX59"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+</script>
     <script src="app.js"></script>
 </body>
+    
 </html>
