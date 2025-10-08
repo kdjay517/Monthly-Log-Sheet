@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Work Log Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Authentication Screen -->
+    <div class="auth-container" id="authContainer">
+        <div class="auth-card card">
+            <div class="card__body">
+                <h1>Daily Work Log Tracker</h1>
+                <p class="auth-subtitle">Track your daily work activities and manage leave efficiently</p>
+                
+                <div class="auth-tabs">
+                    <button class="auth-tab active" data-tab="login">Login</button>
+                    <button class="auth-tab" data-tab="register">Register</button>
+                    <button class="auth-tab" data-tab="guest">Guest Mode</button>
+                </div>
+
+                <!-- Login Form -->
+                <form class="auth-form" id="loginForm">
+                    <div class="form-group">
+                        <label class="form-label" for="loginEmail">Email</label>
+                        <input type="email" class="form-control" id="loginEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="loginPassword">Password</label>
+                        <input type="password" class="form-control" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn btn--primary btn--full-width">Login</button>
+                </form>
+
+                <!-- Register Form -->
+                <form class="auth-form hidden" id="registerForm">
+                    <div class="form-group">
+                        <label class="form-label" for="registerName">Full Name</label>
+                        <input type="text" class="form-control" id="registerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="registerEmail">Email</label>
+                        <input type="email" class="form-control" id="registerEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="registerEmployeeId">Employee ID</label>
+                        <input type="text" class="form-control" id="registerEmployeeId" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="registerPassword">Password</label>
+                        <input type="password" class="form-control" id="registerPassword" required>
+                    </div>
+                    <button type="submit" class="btn btn--primary btn--full-width">Register</button>
+                </form>
+
+                <!-- Guest Mode -->
+                <div class="auth-form hidden" id="guestForm">
+                    <p class="guest-info">Use the application without an account. Data will be stored locally on your device.</p>
+                    <button type="button" class="btn btn--secondary btn--full-width" id="guestModeBtn">Continue as Guest</button>
+                </div>
+
+                <div class="auth-errors" id="authErrors"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div class="app-container hidden" id="appContainer">
+        <header class="app-header">
+            <div class="header-left">
+                <h1>Daily Work Log Tracker</h1>
+                <div class="sync-status" id="syncStatus">
+                    <span class="sync-indicator"></span>
+                    <span class="sync-text">Local Storage</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="user-profile" id="userProfile">
+                    <span class="user-name">Guest User</span>
+                    <span class="user-id">LOCAL</span>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn--outline" id="statsBtn">Statistics</button>
+                    <button class="btn btn--secondary" id="exportBtn">Export Data</button>
+                    <button class="btn btn--outline" id="logoutBtn">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="app-main">
+            <!-- Monthly Statistics Dashboard -->
+            <div class="stats-dashboard" id="statsDashboard">
+                <div class="stats-grid">
+                    <div class="stat-card card">
+                        <div class="card__body">
+                            <h4>Total Work Hours</h4>
+                            <div class="stat-value" id="totalWorkHours">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card card">
+                        <div class="card__body">
+                            <h4>Work Days</h4>
+                            <div class="stat-value" id="workDays">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card card">
+                        <div class="card__body">
+                            <h4>Leave Days</h4>
+                            <div class="stat-value" id="leaveDays">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card card">
+                        <div class="card__body">
+                            <h4>Holidays</h4>
+                            <div class="stat-value" id="holidays">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="project-breakdown card">
+                    <div class="card__body">
+                        <h4>Project Breakdown</h4>
+                        <div id="projectBreakdownChart" style="position: relative; height: 200px;">
+                            <canvas id="projectChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="main-content">
+                <!-- Calendar Section -->
+                <div class="calendar-section">
+                    <div class="calendar-header">
+                        <button class="btn btn--outline" id="prevMonthBtn">&larr;</button>
+                        <div class="month-selector">
+                            <h2 id="currentMonth">October 2025</h2>
+                            <select class="form-control" id="monthSelector">
+                                <option value="0">January</option>
+                                <option value="1">February</option>
+                                <option value="2">March</option>
+                                <option value="3">April</option>
+                                <option value="4">May</option>
+                                <option value="5">June</option>
+                                <option value="6">July</option>
+                                <option value="7">August</option>
+                                <option value="8">September</option>
+                                <option value="9">October</option>
+                                <option value="10">November</option>
+                                <option value="11">December</option>
+                            </select>
+                            <select class="form-control" id="yearSelector"></select>
+                        </div>
+                        <button class="btn btn--outline" id="nextMonthBtn">&rarr;</button>
+                    </div>
+                    
+                    <div class="calendar-grid" id="calendarGrid">
+                        <div class="calendar-day-header">Sun</div>
+                        <div class="calendar-day-header">Mon</div>
+                        <div class="calendar-day-header">Tue</div>
+                        <div class="calendar-day-header">Wed</div>
+                        <div class="calendar-day-header">Thu</div>
+                        <div class="calendar-day-header">Fri</div>
+                        <div class="calendar-day-header">Sat</div>
+                    </div>
+
+                    <div class="legend">
+                        <h5>Legend</h5>
+                        <div class="legend-items">
+                            <span class="legend-item"><span class="legend-color work-color"></span>Work Entry</span>
+                            <span class="legend-item"><span class="legend-color full-leave-color"></span>Full Day Leave</span>
+                            <span class="legend-item"><span class="legend-color half-leave-color"></span>Half Day Leave</span>
+                            <span class="legend-item"><span class="legend-color holiday-color"></span>Holiday</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Entry Management Section -->
+                <div class="entry-section">
+                    <div class="selected-date-info">
+                        <h3>Selected Date: <span id="selectedDateDisplay">Please select a date</span></h3>
+                        <div class="daily-stats">
+                            <span class="stat-item">Total Hours: <strong id="totalHours">0</strong></span>
+                            <span class="stat-item" id="validationWarning"></span>
+                        </div>
+                    </div>
+
+                    <!-- Entry Form -->
+                    <div class="entry-form card" id="entryForm" style="display: none;">
+                        <div class="card__body">
+                            <h4 id="formTitle">Add New Entry</h4>
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="entryType">Entry Type</label>
+                                <select class="form-control" id="entryType">
+                                    <option value="">Select entry type...</option>
+                                    <option value="work">Work Entry</option>
+                                    <option value="fullLeave">Full Day Leave</option>
+                                    <option value="halfLeave">Half Day Leave</option>
+                                    <option value="holiday">Holiday</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="projectGroup" style="display: none;">
+                                <label class="form-label" for="project">Project</label>
+                                <select class="form-control" id="project">
+                                    <option value="">Select project...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="hoursGroup" style="display: none;">
+                                <label class="form-label" for="hours">Hours</label>
+                                <input type="number" class="form-control" id="hours" min="0" max="8" step="0.5" placeholder="Enter hours (0.5 - 8.0)">
+                            </div>
+
+                            <div class="form-group" id="halfDayPeriodGroup" style="display: none;">
+                                <label class="form-label" for="halfDayPeriod">Time Period</label>
+                                <select class="form-control" id="halfDayPeriod">
+                                    <option value="">Select time period...</option>
+                                    <option value="morning">Morning (8:00 AM - 12:00 PM)</option>
+                                    <option value="afternoon">Afternoon (1:00 PM - 5:00 PM)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="commentsGroup">
+                                <label class="form-label" for="comments">Comments</label>
+                                <textarea class="form-control" id="comments" rows="3" placeholder="Add any additional notes..."></textarea>
+                            </div>
+
+                            <div class="form-actions">
+                                <button class="btn btn--primary" id="addEntryBtn">Add Entry</button>
+                                <button class="btn btn--secondary" id="cancelEntryBtn" style="display: none;">Cancel</button>
+                            </div>
+
+                            <div id="formErrors" class="form-errors"></div>
+                        </div>
+                    </div>
+
+                    <!-- Daily Entries List -->
+                    <div class="daily-entries" id="dailyEntries">
+                        <h4>Daily Entries</h4>
+                        <div id="entriesList" class="entries-list">
+                            <p class="no-entries">No entries for selected date</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden">
+        <span id="toastMessage"></span>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Confirm Delete</h3>
+            <p>Are you sure you want to delete this entry?</p>
+            <div class="modal-actions">
+                <button class="btn btn--primary" id="confirmDeleteBtn">Delete</button>
+                <button class="btn btn--secondary" id="cancelDeleteBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Modal -->
+    <div id="statsModal" class="modal hidden">
+        <div class="modal-content stats-modal-content">
+            <div class="modal-header">
+                <h3>Monthly Statistics</h3>
+                <button class="btn btn--outline btn--sm" id="closeStatsBtn">Close</button>
+            </div>
+            <div class="modal-body">
+                <div class="stats-summary" id="statsModalContent">
+                    <!-- Statistics content will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js for statistics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
