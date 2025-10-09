@@ -1,12 +1,19 @@
 // Firebase Configuration (Demo - replace with your actual config)
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-    apiKey: "demo-api-key",
-    authDomain: "work-log-tracker-demo.firebaseapp.com",
-    projectId: "work-log-tracker-demo",
-    storageBucket: "work-log-tracker-demo.appspot.com",
-    messagingSenderId: "123456789",
-    appId: "1:123456789:web:abcdef123456"
+  apiKey: "AIzaSyD0fCY4dwc0igmcTYJOU2rRGQ0ERSVz2l4",
+  authDomain: "daily-work-log-tracker.firebaseapp.com",
+  projectId: "daily-work-log-tracker",
+  storageBucket: "daily-work-log-tracker.firebasestorage.app",
+  messagingSenderId: "891051391167",
+  appId: "1:891051391167:web:1050e984fa86b4d070ee0a",
+  measurementId: "G-3X0E8CJX59"
 };
+
+// Initialize Firebase
+// const app = initializeApp(firebaseConfig);
+// const analytics = getAnalytics(app);
 
 // Initialize Firebase (with error handling for demo config)
 let auth, db;
