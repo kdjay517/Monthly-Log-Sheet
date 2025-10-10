@@ -1,29 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daily Work Log Tracker</title>
-    <link href="style.css" rel="stylesheet"/>
-    
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
-    <!-- Loading Indicator (initially hidden) -->
-    <div id="loadingIndicator" class="loading-indicator hidden">
-        <div class="loading-spinner"></div>
-        <p>Loading...</p>
-    </div>
-
     <!-- Authentication Screen -->
     <div id="authScreen" class="auth-screen">
         <div class="auth-container">
             <div class="auth-header">
                 <h1>Daily Work Log Tracker</h1>
                 <p>Track your work hours and manage your daily activities</p>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="loginTab">Login</button>
+                <button class="auth-tab" id="registerTab">Register</button>
+                <button class="auth-tab" id="guestTab">Guest</button>
             </div>
 
             <!-- Login Form -->
@@ -43,11 +42,6 @@
                     
                     <div class="form-actions">
                         <button class="btn btn--primary btn--full-width" id="loginBtn">Login</button>
-                    </div>
-                    
-                    <div class="auth-links">
-                        <p>Don't have an account? <a href="#" id="showRegisterBtn">Create Account</a></p>
-                        <button class="btn btn--outline btn--full-width" id="continueGuestBtn">Continue as Guest</button>
                     </div>
                     
                     <div id="loginErrors" class="form-errors"></div>
@@ -71,7 +65,7 @@
                     
                     <div class="form-group">
                         <label class="form-label" for="registerPassword">Password</label>
-                        <input type="password" class="form-control" id="registerPassword" placeholder="Enter password (min 6 characters)" required>
+                        <input type="password" class="form-control" id="registerPassword" placeholder="Enter your password (min 6 characters)" required>
                     </div>
                     
                     <div class="form-group">
@@ -83,12 +77,30 @@
                         <button class="btn btn--primary btn--full-width" id="registerBtn">Create Account</button>
                     </div>
                     
-                    <div class="auth-links">
-                        <p>Already have an account? <a href="#" id="showLoginBtn">Login Here</a></p>
-                        <button class="btn btn--outline btn--full-width" id="continueGuestFromRegisterBtn">Continue as Guest</button>
+                    <div id="registerErrors" class="form-errors"></div>
+                </div>
+            </div>
+
+            <!-- Guest Form -->
+            <div id="guestForm" class="auth-form card hidden">
+                <div class="card__body">
+                    <h2>Continue as Guest</h2>
+                    <p>Use the application without cloud sync. Your data will be stored locally on this device only.</p>
+                    
+                    <div class="form-actions">
+                        <button class="btn btn--primary btn--full-width" id="continueGuestBtn">Continue as Guest</button>
                     </div>
                     
-                    <div id="registerErrors" class="form-errors"></div>
+                    <div class="guest-info">
+                        <h4>Guest Mode Features:</h4>
+                        <ul>
+                            <li>✓ Full calendar functionality</li>
+                            <li>✓ Work and leave tracking</li>
+                            <li>✓ Project management</li>
+                            <li>✓ Data export</li>
+                            <li>⚠️ No cloud sync (data stored locally)</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
@@ -96,56 +108,56 @@
 
     <!-- Main Application -->
     <div id="mainApp" class="main-app hidden">
-        <header class="app-header">
-            <div class="header-left">
-                <h1>Daily Work Log Tracker</h1>
-                <div class="user-info">
-                    <span id="userWelcome">Welcome!</span>
-                    <span class="user-mode" id="userMode">Local Mode</span>
+        <div class="container">
+            <header class="app-header">
+                <div class="header-left">
+                    <h1>Daily Work Log Tracker</h1>
+                    <div class="user-info">
+                        <span id="userWelcome">Welcome back!</span>
+                        <span class="user-mode" id="userMode"></span>
+                    </div>
                 </div>
-            </div>
-            <div class="header-actions">
-                <button class="btn btn--secondary" id="manageProjectsBtn">Manage Projects</button>
-                <button class="btn btn--secondary" id="exportBtn">Export Month Data</button>
-                <button class="btn btn--outline" id="logoutBtn">Logout</button>
-            </div>
-        </header>
+                <div class="header-actions">
+                    <button class="btn btn--secondary" id="exportBtn">Export Month Data</button>
+                    <button class="btn btn--outline" id="logoutBtn">Logout</button>
+                </div>
+            </header>
 
-        <main class="app-main">
-            <div class="calendar-section">
-                <div class="calendar-header">
-                    <button class="btn btn--outline" id="prevMonthBtn">&larr;</button>
-                    <h2 id="currentMonth">October 2025</h2>
-                    <button class="btn btn--outline" id="nextMonthBtn">&rarr;</button>
-                </div>
-                
-                <div class="calendar-grid" id="calendarGrid">
-                    <div class="calendar-day-header">Sun</div>
-                    <div class="calendar-day-header">Mon</div>
-                    <div class="calendar-day-header">Tue</div>
-                    <div class="calendar-day-header">Wed</div>
-                    <div class="calendar-day-header">Thu</div>
-                    <div class="calendar-day-header">Fri</div>
-                    <div class="calendar-day-header">Sat</div>
-                </div>
-            </div>
-
-            <div class="log-section">
-                <div class="selected-date-info">
-                    <h3>Selected Date: <span id="selectedDateDisplay">Please select a date</span></h3>
-                    <div class="daily-stats">
-                        <span class="stat-item">Total Hours: <strong id="totalHours">0</strong></span>
-                        <span class="stat-item" id="validationWarning"></span>
+            <main class="app-main">
+                <div class="calendar-section">
+                    <div class="calendar-header">
+                        <button class="btn btn--outline" id="prevMonthBtn">&larr;</button>
+                        <h2 id="currentMonth">October 2025</h2>
+                        <button class="btn btn--outline" id="nextMonthBtn">&rarr;</button>
+                    </div>
+                    
+                    <div class="calendar-grid" id="calendarGrid">
+                        <div class="calendar-day-header">Sun</div>
+                        <div class="calendar-day-header">Mon</div>
+                        <div class="calendar-day-header">Tue</div>
+                        <div class="calendar-day-header">Wed</div>
+                        <div class="calendar-day-header">Thu</div>
+                        <div class="calendar-day-header">Fri</div>
+                        <div class="calendar-day-header">Sat</div>
                     </div>
                 </div>
 
-                <div class="card entry-form">
-                    <div class="card__body">
-                        <h4>Add New Entry</h4>
-                        <form id="entryForm" style="display: none;">
+                <div class="log-section">
+                    <div class="selected-date-info">
+                        <h3>Selected Date: <span id="selectedDateDisplay">Please select a date</span></h3>
+                        <div class="daily-stats">
+                            <span class="stat-item">Total Hours: <strong id="totalHours">0</strong></span>
+                            <span class="stat-item" id="validationWarning"></span>
+                        </div>
+                    </div>
+
+                    <div class="entry-form card" id="entryForm" style="display: none;">
+                        <div class="card__body">
+                            <h4>Add New Entry</h4>
+                            
                             <div class="form-group">
                                 <label class="form-label" for="entryType">Entry Type</label>
-                                <select class="form-control" id="entryType" required>
+                                <select class="form-control" id="entryType">
                                     <option value="">Select entry type...</option>
                                     <option value="work">Work Entry</option>
                                     <option value="fullLeave">Full Day Leave</option>
@@ -159,11 +171,12 @@
                                 <select class="form-control" id="project">
                                     <option value="">Select project...</option>
                                 </select>
+                                <button class="btn btn--sm btn--outline" id="manageProjectsBtn" type="button">Manage Projects</button>
                             </div>
 
                             <div class="form-group" id="hoursGroup" style="display: none;">
                                 <label class="form-label" for="hours">Hours</label>
-                                <input type="number" class="form-control" id="hours" min="0.5" max="8" step="0.5">
+                                <input type="number" class="form-control" id="hours" min="0" max="8" step="0.5" placeholder="Enter hours">
                             </div>
 
                             <div class="form-group" id="halfDayPeriodGroup" style="display: none;">
@@ -175,50 +188,36 @@
                                 </select>
                             </div>
 
-                            <div class="form-group">
+                            <div class="form-group" id="commentsGroup">
                                 <label class="form-label" for="comments">Comments</label>
-                                <textarea class="form-control" id="comments" rows="3" placeholder="Optional comments..."></textarea>
+                                <textarea class="form-control" id="comments" rows="3" placeholder="Add any additional notes..."></textarea>
                             </div>
 
                             <div class="form-actions">
-                                <button type="button" class="btn btn--primary" id="addEntryBtn">Add Entry</button>
-                                <button type="button" class="btn btn--outline" id="cancelEntryBtn" style="display: none;">Cancel</button>
+                                <button class="btn btn--primary" id="addEntryBtn">Add Entry</button>
+                                <button class="btn btn--secondary" id="cancelEntryBtn" style="display: none;">Cancel</button>
                             </div>
-                        </form>
-                        <div id="formErrors" class="form-errors"></div>
-                    </div>
-                </div>
 
-                <div class="card daily-entries">
-                    <div class="card__body">
+                            <div id="formErrors" class="form-errors"></div>
+                        </div>
+                    </div>
+
+                    <div class="daily-entries" id="dailyEntries">
                         <h4>Daily Entries</h4>
-                        <div id="entriesList">
+                        <div id="entriesList" class="entries-list">
                             <p class="no-entries">No entries for selected date</p>
                         </div>
                     </div>
                 </div>
-            </div>
-        </main>
+            </main>
 
-        <!-- Legend -->
-        <div class="legend">
-            <h5>Legend</h5>
-            <div class="legend-items">
-                <div class="legend-item">
-                    <div class="legend-color work-color"></div>
-                    <span>Work Entry</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color full-leave-color"></div>
-                    <span>Full Day Leave</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color half-leave-color"></div>
-                    <span>Half Day Leave</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color holiday-color"></div>
-                    <span>Holiday</span>
+            <div class="legend">
+                <h5>Legend</h5>
+                <div class="legend-items">
+                    <span class="legend-item"><span class="legend-color work-color"></span>Work Entry</span>
+                    <span class="legend-item"><span class="legend-color full-leave-color"></span>Full Day Leave</span>
+                    <span class="legend-item"><span class="legend-color half-leave-color"></span>Half Day Leave</span>
+                    <span class="legend-item"><span class="legend-color holiday-color"></span>Holiday</span>
                 </div>
             </div>
         </div>
@@ -226,73 +225,70 @@
 
     <!-- Project Management Modal -->
     <div id="projectModal" class="modal hidden">
-        <div class="modal-content project-modal">
+        <div class="modal-content">
             <div class="modal-header">
                 <h3>Manage Projects</h3>
-                <button class="btn btn--outline btn--sm" id="closeProjectModalBtn">&times;</button>
+                <button class="btn btn--sm btn--outline" id="closeProjectModalBtn">×</button>
             </div>
-            
-            <div class="project-form">
-                <div class="form-row">
+            <div class="modal-body">
+                <div class="project-form">
                     <div class="form-group">
                         <label class="form-label" for="newProjectId">Project ID</label>
                         <input type="text" class="form-control" id="newProjectId" placeholder="e.g., WV-1112-4152">
                     </div>
-                    
                     <div class="form-group">
                         <label class="form-label" for="newSubCode">Sub Code</label>
                         <input type="text" class="form-control" id="newSubCode" placeholder="e.g., 0210">
                     </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="newProjectTitle">Project Title</label>
-                    <input type="text" class="form-control" id="newProjectTitle" placeholder="Enter project title">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="newProjectCategory">Category</label>
-                    <select class="form-control" id="newProjectCategory">
-                        <option value="">Select category...</option>
-                        <option value="Development">Development</option>
-                        <option value="Strategy">Strategy</option>
-                        <option value="Tracking">Tracking</option>
-                        <option value="Research">Research</option>
-                        <option value="Overhead">Overhead</option>
-                        <option value="Controller">Controller</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-                
-                <div class="form-actions">
+                    <div class="form-group">
+                        <label class="form-label" for="newProjectTitle">Project Title</label>
+                        <input type="text" class="form-control" id="newProjectTitle" placeholder="Enter project title">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="newProjectCategory">Category</label>
+                        <select class="form-control" id="newProjectCategory">
+                            <option value="">Select category...</option>
+                            <option value="Development">Development</option>
+                            <option value="Strategy">Strategy</option>
+                            <option value="Tracking">Tracking</option>
+                            <option value="Research">Research</option>
+                            <option value="Overhead">Overhead</option>
+                            <option value="Controller">Controller</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
                     <button class="btn btn--primary" id="addProjectBtn">Add Project</button>
                 </div>
-            </div>
-
-            <div class="projects-list">
-                <div id="projectsList"></div>
+                <div class="projects-list" id="projectsList">
+                    <!-- Projects will be populated here -->
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Toast Notification -->
-    <div id="toast" class="toast">
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="loading-indicator hidden">
+        <div class="loading-spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+    <!-- Toast notification -->
+    <div id="toast" class="toast hidden">
         <span id="toastMessage"></span>
     </div>
 
-    <!-- Confirm Delete Modal -->
+    <!-- Confirmation modal -->
     <div id="confirmModal" class="modal hidden">
         <div class="modal-content">
             <h3>Confirm Delete</h3>
             <p>Are you sure you want to delete this entry?</p>
             <div class="modal-actions">
                 <button class="btn btn--primary" id="confirmDeleteBtn">Delete</button>
-                <button class="btn btn--outline" id="cancelDeleteBtn">Cancel</button>
+                <button class="btn btn--secondary" id="cancelDeleteBtn">Cancel</button>
             </div>
         </div>
     </div>
 
-    <!-- Load your app.js file -->
     <script src="app.js"></script>
 </body>
 </html>
