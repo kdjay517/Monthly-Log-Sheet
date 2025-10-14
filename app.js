@@ -20,26 +20,26 @@ try {
     firebaseInitialized = true;
     console.log('Firebase initialized successfully');
 } catch (error) {
-    console.error('Firebase initialization failed:', error);
+    console.warn('Firebase initialization failed:', error);
     firebaseInitialized = false;
 }
 
 // Application data
 let projectData = [
-    { id: "1", projectId: "IN-1100-NA", subCode: "0010", title: "General Overhead", category: "Overhead" },
-    { id: "2", projectId: "WV-1112-4152", subCode: "0210", title: "AS_Strategy", category: "Strategy" },
-    { id: "3", projectId: "WV-1112-4152", subCode: "1010", title: "AS_Strategy", category: "Strategy" },
-    { id: "4", projectId: "WV-1112-4152", subCode: "1020", title: "AS_Strategy", category: "Strategy" },
-    { id: "5", projectId: "RW-1173-9573P00303", subCode: "0010", title: "RW Tracking", category: "Tracking" },
-    { id: "6", projectId: "WV-1137-D75B1-C4285-08-03", subCode: "1250", title: "MERCIA_INSIGNIA_ElectronicController_Mil", category: "Controller" },
-    { id: "7", projectId: "WV-1116-4306", subCode: "0020", title: "SensorLess_Controller_Demo", category: "Controller" }
+    { id: "1", projectId: "IN-1100-NA", subCode: "0010", projectTitle: "General Overhead", category: "Overhead", isActive: true, usageCount: 0 },
+    { id: "2", projectId: "WV-1112-4152", subCode: "0210", projectTitle: "AS_Strategy", category: "Strategy", isActive: true, usageCount: 0 },
+    { id: "3", projectId: "WV-1112-4152", subCode: "1010", projectTitle: "AS_Strategy", category: "Strategy", isActive: true, usageCount: 0 },
+    { id: "4", projectId: "WV-1112-4152", subCode: "1020", projectTitle: "AS_Strategy", category: "Strategy", isActive: true, usageCount: 0 },
+    { id: "5", projectId: "RW-1173-9573P00303", subCode: "0010", projectTitle: "RW Tracking", category: "Tracking", isActive: true, usageCount: 0 },
+    { id: "6", projectId: "WV-1137-D75B1-C4285-08-03", subCode: "1250", projectTitle: "MERCIA_INSIGNIA_ElectronicController_Mil", category: "Controller", isActive: true, usageCount: 0 },
+    { id: "7", projectId: "WV-1116-4306", subCode: "0020", projectTitle: "SensorLess_Controller_Demo", category: "Controller", isActive: true, usageCount: 0 }
 ];
 
 const entryTypes = {
-    work: { label: "Work Entry", color: "#3b82f6" },
-    fullLeave: { label: "Full Day Leave", color: "#ef4444" },
-    halfLeave: { label: "Half Day Leave", color: "#f97316" },
-    holiday: { label: "Holiday", color: "#22c55e" }
+    work: { label: "Work Entry", color: "#3b82f6", maxHours: 8 },
+    fullLeave: { label: "Full Day Leave", color: "#ef4444", maxHours: 8 },
+    halfLeave: { label: "Half Day Leave", color: "#f97316", maxHours: 4 },
+    holiday: { label: "Holiday", color: "#22c55e", maxHours: 8 }
 };
 
 // Application state
@@ -49,6 +49,7 @@ let currentDate = new Date();
 let selectedDate = null;
 let editingEntry = null;
 let workLogData = {};
+let activeTab = 'login';
 
 // DOM elements cache
 let elements = {};
@@ -60,17 +61,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cache DOM elements
     cacheElements();
     
-    // Hide loading indicator immediately
+    // Ensure loading indicator is hidden immediately
     hideLoadingIndicator();
     
     // Setup event listeners
     setupEventListeners();
     
     // Initialize authentication flow
-    initializeAuth();
-    
-    // Initialize auth tabs
-    initializeAuthTabs();
+    setTimeout(() => {
+        initializeAuth();
+    }, 100);
 });
 
 function cacheElements() {
@@ -123,6 +123,7 @@ function cacheElements() {
         cancelEntryBtn: document.getElementById('cancelEntryBtn'),
         formErrors: document.getElementById('formErrors'),
         entriesList: document.getElementById('entriesList'),
+        entriesCount: document.getElementById('entriesCount'),
         exportBtn: document.getElementById('exportBtn'),
         
         // Project management
@@ -146,23 +147,29 @@ function cacheElements() {
 }
 
 function hideLoadingIndicator() {
-    if (elements.loadingIndicator) {
-        elements.loadingIndicator.classList.add('hidden');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    if (loadingIndicator) {
+        loadingIndicator.classList.add('hidden');
     }
 }
 
 function showLoadingIndicator() {
-    if (elements.loadingIndicator) {
-        elements.loadingIndicator.classList.remove('hidden');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    if (loadingIndicator) {
+        loadingIndicator.classList.remove('hidden');
     }
 }
 
 function initializeAuth() {
+    console.log('Initializing auth, Firebase initialized:', firebaseInitialized);
+    
+    hideLoadingIndicator();
+    
     if (firebaseInitialized) {
-        // Set up Firebase auth state listener
         auth.onAuthStateChanged(user => {
             console.log('Auth state changed:', user ? 'User logged in' : 'No user');
             hideLoadingIndicator();
+            
             if (user) {
                 currentUser = user;
                 isGuestMode = false;
@@ -173,43 +180,10 @@ function initializeAuth() {
             }
         });
     } else {
-        // Firebase not available, show auth screen
         console.log('Firebase not available, showing auth screen');
         hideLoadingIndicator();
         showAuthScreen();
     }
-}
-
-function initializeAuthTabs() {
-    // Show login form by default
-    showAuthForm('login');
-}
-
-// Auth tab management
-function showAuthForm(formType) {
-    // Reset active tab
-    document.querySelectorAll('.auth-tab').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.auth-form').forEach(form => form.classList.add('hidden'));
-    
-    // Show selected form
-    switch(formType) {
-        case 'login':
-            elements.loginTab.classList.add('active');
-            elements.loginForm.classList.remove('hidden');
-            break;
-        case 'register':
-            elements.registerTab.classList.add('active');
-            elements.registerForm.classList.remove('hidden');
-            break;
-        case 'guest':
-            elements.guestTab.classList.add('active');
-            elements.guestForm.classList.remove('hidden');
-            break;
-    }
-    
-    // Clear any errors
-    hideAuthErrors('loginErrors');
-    hideAuthErrors('registerErrors');
 }
 
 // Event listeners setup
@@ -218,16 +192,16 @@ function setupEventListeners() {
     
     // Auth tab listeners
     if (elements.loginTab) {
-        elements.loginTab.addEventListener('click', () => showAuthForm('login'));
+        elements.loginTab.addEventListener('click', () => showAuthTab('login'));
     }
     if (elements.registerTab) {
-        elements.registerTab.addEventListener('click', () => showAuthForm('register'));
+        elements.registerTab.addEventListener('click', () => showAuthTab('register'));
     }
     if (elements.guestTab) {
-        elements.guestTab.addEventListener('click', () => showAuthForm('guest'));
+        elements.guestTab.addEventListener('click', () => showAuthTab('guest'));
     }
     
-    // Auth event listeners
+    // Auth form listeners
     if (elements.loginBtn) {
         elements.loginBtn.addEventListener('click', handleLogin);
     }
@@ -295,7 +269,46 @@ function setupEventListeners() {
         });
     }
     
+    // Modal overlay clicks
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal-overlay')) {
+            hideProjectModal();
+            cancelDelete();
+        }
+    });
+    
     console.log('Event listeners set up successfully');
+}
+
+// Authentication tab management
+function showAuthTab(tabName) {
+    activeTab = tabName;
+    
+    // Update tab states
+    document.querySelectorAll('.auth-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Hide all forms
+    if (elements.loginForm) elements.loginForm.classList.add('hidden');
+    if (elements.registerForm) elements.registerForm.classList.add('hidden');
+    if (elements.guestForm) elements.guestForm.classList.add('hidden');
+    
+    // Show active tab and form
+    if (tabName === 'login') {
+        elements.loginTab.classList.add('active');
+        elements.loginForm.classList.remove('hidden');
+    } else if (tabName === 'register') {
+        elements.registerTab.classList.add('active');
+        elements.registerForm.classList.remove('hidden');
+    } else if (tabName === 'guest') {
+        elements.guestTab.classList.add('active');
+        elements.guestForm.classList.remove('hidden');
+    }
+    
+    // Clear errors
+    hideAuthErrors('loginErrors');
+    hideAuthErrors('registerErrors');
 }
 
 // Authentication functions
@@ -379,6 +392,8 @@ async function handleRegister() {
 
 function continueAsGuest() {
     console.log('Continue as guest clicked');
+    hideLoadingIndicator();
+    
     isGuestMode = true;
     currentUser = null;
     showMainApp();
@@ -396,36 +411,37 @@ async function handleLogout() {
     currentUser = null;
     isGuestMode = false;
     workLogData = {};
-    selectedDate = null;
-    editingEntry = null;
     showAuthScreen();
     showToast('Logged out successfully');
 }
 
 function showAuthScreen() {
     console.log('Showing auth screen');
+    hideLoadingIndicator();
+    
     elements.authScreen.classList.remove('hidden');
     elements.mainApp.classList.add('hidden');
-    hideLoadingIndicator();
-    // Reset to login tab
-    showAuthForm('login');
+    
+    // Show default tab
+    showAuthTab('login');
 }
 
 function showMainApp() {
     console.log('Showing main app');
+    hideLoadingIndicator();
+    
     elements.authScreen.classList.add('hidden');
     elements.mainApp.classList.remove('hidden');
-    hideLoadingIndicator();
     
     // Update user info
     if (currentUser) {
         elements.userWelcome.textContent = `Welcome back, ${currentUser.displayName || currentUser.email}!`;
         elements.userMode.textContent = 'Cloud Sync Enabled';
-        elements.userMode.style.background = 'var(--color-bg-3)';
+        elements.userMode.className = 'status status--success';
     } else {
         elements.userWelcome.textContent = 'Welcome, Guest!';
         elements.userMode.textContent = 'Local Storage Only';
-        elements.userMode.style.background = 'var(--color-bg-2)';
+        elements.userMode.className = 'status status--warning';
     }
     
     // Initialize main app
@@ -466,11 +482,6 @@ async function loadUserData() {
         
         populateProjectDropdown();
         renderCalendar();
-        
-        if (selectedDate) {
-            renderDailyEntries();
-            updateDailyStats();
-        }
         
     } catch (error) {
         console.error('Error loading user data:', error);
@@ -573,6 +584,7 @@ function createCalendarDay(date, currentMonth) {
     const dayElement = document.createElement('div');
     dayElement.className = 'calendar-day';
     dayElement.textContent = date.getDate();
+    dayElement.setAttribute('tabindex', '0');
     
     const dateKey = formatDateKey(date);
     const isCurrentMonth = date.getMonth() === currentMonth;
@@ -602,6 +614,12 @@ function createCalendarDay(date, currentMonth) {
     }
     
     dayElement.addEventListener('click', () => selectDate(date));
+    dayElement.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectDate(date);
+        }
+    });
     
     return dayElement;
 }
@@ -622,25 +640,14 @@ function selectDate(date) {
 
 // Project management functions
 function populateProjectDropdown() {
-    console.log('Populating project dropdown with', projectData.length, 'projects');
-    
-    if (!elements.project) {
-        console.error('Project dropdown element not found');
-        return;
-    }
-    
-    // Clear existing options
     elements.project.innerHTML = '<option value="">Select project...</option>';
     
-    // Add projects to dropdown
     projectData.forEach(proj => {
         const option = document.createElement('option');
         option.value = `${proj.projectId}-${proj.subCode}`;
-        option.textContent = `${proj.projectId} (${proj.subCode}) - ${proj.title}`;
+        option.textContent = `${proj.projectId} (${proj.subCode}) - ${proj.projectTitle}`;
         elements.project.appendChild(option);
     });
-    
-    console.log('Project dropdown populated with', elements.project.children.length - 1, 'projects');
 }
 
 function showProjectModal() {
@@ -656,15 +663,21 @@ function hideProjectModal() {
 function renderProjectsList() {
     elements.projectsList.innerHTML = '';
     
+    if (projectData.length === 0) {
+        elements.projectsList.innerHTML = '<p class="no-entries">No projects available</p>';
+        return;
+    }
+    
     projectData.forEach(project => {
         const projectItem = document.createElement('div');
         projectItem.className = 'project-item';
         projectItem.innerHTML = `
             <div class="project-info">
                 <h5>${project.projectId} (${project.subCode})</h5>
-                <p>${project.title} - ${project.category}</p>
+                <p>${project.projectTitle} - ${project.category}</p>
             </div>
             <div class="project-actions">
+                <button class="btn btn--sm btn--outline" onclick="editProject('${project.id}')">Edit</button>
                 <button class="btn btn--sm btn--outline" onclick="deleteProject('${project.id}')" style="color: var(--color-error);">Delete</button>
             </div>
         `;
@@ -675,14 +688,14 @@ function renderProjectsList() {
 async function handleAddProject() {
     const projectId = elements.newProjectId.value.trim();
     const subCode = elements.newSubCode.value.trim();
-    const title = elements.newProjectTitle.value.trim();
+    const projectTitle = elements.newProjectTitle.value.trim();
     const category = elements.newProjectCategory.value;
     
     const errors = [];
     
     if (!projectId) errors.push('Project ID is required');
     if (!subCode) errors.push('Sub code is required');
-    if (!title) errors.push('Project title is required');
+    if (!projectTitle) errors.push('Project title is required');
     if (!category) errors.push('Category is required');
     
     // Check for duplicates
@@ -703,8 +716,10 @@ async function handleAddProject() {
         id: generateId(),
         projectId,
         subCode,
-        title,
-        category
+        projectTitle,
+        category,
+        isActive: true,
+        usageCount: 0
     };
     
     projectData.push(newProject);
@@ -844,9 +859,6 @@ function validateEntry(entryData) {
         if (!entryData.hours || entryData.hours <= 0) {
             errors.push('Hours must be greater than 0 for work entries');
         }
-        if (entryData.hours > 8) {
-            errors.push('Hours cannot exceed 8');
-        }
     }
     
     if (entryData.type === 'halfLeave' && !entryData.halfDayPeriod) {
@@ -959,7 +971,14 @@ function validateHours() {
 // Entry display functions
 function renderDailyEntries() {
     if (!selectedDate) {
-        elements.entriesList.innerHTML = '<p class="no-entries">No entries for selected date</p>';
+        elements.entriesList.innerHTML = `
+            <div class="no-entries">
+                <span class="no-entries-icon">📝</span>
+                <p>No entries for selected date</p>
+                <span class="no-entries-hint">Select a date above to add your first entry</span>
+            </div>
+        `;
+        updateEntriesCount(0);
         return;
     }
     
@@ -967,11 +986,19 @@ function renderDailyEntries() {
     const entries = workLogData[dateKey] || [];
     
     if (entries.length === 0) {
-        elements.entriesList.innerHTML = '<p class="no-entries">No entries for selected date</p>';
+        elements.entriesList.innerHTML = `
+            <div class="no-entries">
+                <span class="no-entries-icon">📝</span>
+                <p>No entries for selected date</p>
+                <span class="no-entries-hint">Add your first entry using the form above</span>
+            </div>
+        `;
+        updateEntriesCount(0);
         return;
     }
     
     elements.entriesList.innerHTML = entries.map(entry => createEntryHTML(entry)).join('');
+    updateEntriesCount(entries.length);
 }
 
 function createEntryHTML(entry) {
@@ -991,29 +1018,25 @@ function createEntryHTML(entry) {
             </div>
             <div class="entry-details">
                 ${entry.project ? `<div class="entry-detail">
-                    <span class="entry-detail-label">Project:</span>
-                    <span>${getProjectDisplayName(entry.project)}</span>
+                    <span class="entry-detail-label">Project</span>
+                    <span class="entry-detail-value">${getProjectDisplayName(entry.project)}</span>
                 </div>` : ''}
-                ${entry.type === 'work' ? `<div class="entry-detail">
-                    <span class="entry-detail-label">Hours:</span>
-                    <span>${entry.hours}</span>
-                </div>` : ''}
-                ${entry.type === 'halfLeave' ? `<div class="entry-detail">
-                    <span class="entry-detail-label">Period:</span>
-                    <span>${entry.halfDayPeriod === 'morning' ? 'Morning (8:00 AM - 12:00 PM)' : 'Afternoon (1:00 PM - 5:00 PM)'}</span>
+                ${getEntryHours(entry) > 0 ? `<div class="entry-detail">
+                    <span class="entry-detail-label">Hours</span>
+                    <span class="entry-detail-value">${getEntryHours(entry)}</span>
                 </div>` : ''}
                 ${entry.type === 'halfLeave' ? `<div class="entry-detail">
-                    <span class="entry-detail-label">Hours:</span>
-                    <span>4</span>
-                </div>` : ''}
-                ${(entry.type === 'fullLeave' || entry.type === 'holiday') ? `<div class="entry-detail">
-                    <span class="entry-detail-label">Hours:</span>
-                    <span>8</span>
+                    <span class="entry-detail-label">Period</span>
+                    <span class="entry-detail-value">${entry.halfDayPeriod === 'morning' ? 'Morning (8:00 AM - 12:00 PM)' : 'Afternoon (1:00 PM - 5:00 PM)'}</span>
                 </div>` : ''}
             </div>
             ${entry.comments ? `<div class="entry-comments">${entry.comments}</div>` : ''}
         </div>
     `;
+}
+
+function updateEntriesCount(count) {
+    elements.entriesCount.textContent = `${count} ${count === 1 ? 'entry' : 'entries'}`;
 }
 
 function editEntry(entryId) {
@@ -1034,7 +1057,7 @@ function editEntry(entryId) {
     elements.comments.value = entry.comments || '';
     
     // Update form UI
-    elements.addEntryBtn.textContent = 'Update Entry';
+    elements.addEntryBtn.innerHTML = '<span class="btn-text">Update Entry</span>';
     elements.cancelEntryBtn.style.display = 'inline-flex';
     
     showToast('Edit mode activated');
@@ -1074,7 +1097,7 @@ function cancelDelete() {
 function cancelEdit() {
     editingEntry = null;
     resetForm();
-    elements.addEntryBtn.textContent = 'Add Entry';
+    elements.addEntryBtn.innerHTML = '<span class="btn-text">Add Entry</span>';
     elements.cancelEntryBtn.style.display = 'none';
     showToast('Edit cancelled');
 }
@@ -1104,6 +1127,7 @@ function updateDailyStats() {
     if (!selectedDate) {
         elements.totalHours.textContent = '0';
         elements.validationWarning.textContent = '';
+        elements.validationWarning.style.display = 'none';
         return;
     }
     
@@ -1112,22 +1136,18 @@ function updateDailyStats() {
     
     let totalHours = 0;
     entries.forEach(entry => {
-        if (entry.type === 'work') {
-            totalHours += entry.hours;
-        } else if (entry.type === 'halfLeave') {
-            totalHours += 4;
-        } else if (entry.type === 'fullLeave' || entry.type === 'holiday') {
-            totalHours += 8;
-        }
+        totalHours += getEntryHours(entry);
     });
     
     elements.totalHours.textContent = totalHours;
     
     // Show validation warning
     if (totalHours > 8) {
-        elements.validationWarning.textContent = '⚠️ Exceeds 8-hour limit';
+        elements.validationWarning.textContent = '⚠️ Exceeds 8-hour daily limit';
+        elements.validationWarning.style.display = 'block';
     } else {
         elements.validationWarning.textContent = '';
+        elements.validationWarning.style.display = 'none';
     }
 }
 
@@ -1161,10 +1181,14 @@ function hideAuthErrors(elementId) {
 
 function showToast(message) {
     elements.toastMessage.textContent = message;
+    elements.toast.classList.remove('hidden');
     elements.toast.classList.add('show');
     
     setTimeout(() => {
         elements.toast.classList.remove('show');
+        setTimeout(() => {
+            elements.toast.classList.add('hidden');
+        }, 300);
     }, 3000);
 }
 
@@ -1228,7 +1252,7 @@ function createCSVContent(entries) {
 }
 
 function getEntryHours(entry) {
-    if (entry.type === 'work') return entry.hours;
+    if (entry.type === 'work') return entry.hours || 0;
     if (entry.type === 'halfLeave') return 4;
     if (entry.type === 'fullLeave' || entry.type === 'holiday') return 8;
     return 0;
@@ -1238,7 +1262,7 @@ function getProjectDisplayName(projectValue) {
     if (!projectValue) return '';
     
     const project = projectData.find(p => `${p.projectId}-${p.subCode}` === projectValue);
-    return project ? `${project.projectId} (${project.subCode}) - ${project.title}` : projectValue;
+    return project ? `${project.projectId} (${project.subCode}) - ${project.projectTitle}` : projectValue;
 }
 
 function getEntryTypesForDate(dateKey) {
@@ -1281,4 +1305,7 @@ function getAuthErrorMessage(errorCode) {
 // Global functions for inline event handlers
 window.editEntry = editEntry;
 window.deleteEntry = deleteEntry;
+window.editProject = (projectId) => {
+    showToast('Edit project functionality coming soon');
+};
 window.deleteProject = deleteProject;
