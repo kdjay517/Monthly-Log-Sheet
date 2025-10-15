@@ -479,11 +479,13 @@ async function loadUserDataFromCloud() {
     showLoadingIndicator();
     
     try {
-        // Load from single document structure
-        const doc = await db.collection('workLogs').doc(currentUser.uid).get();
+        // FIXED: Use proper Firebase v9 syntax
+        const docRef = db.collection('workLogs').doc(currentUser.uid);
+        const docSnapshot = await docRef.get();
         
-        if (doc.exists()) {
-            const cloudData = doc.data();
+        // FIXED: Use .exists instead of .exists()
+        if (docSnapshot.exists) {
+            const cloudData = docSnapshot.data();
             console.log('Cloud data loaded:', cloudData);
             
             // Load work log entries
@@ -511,7 +513,6 @@ async function loadUserDataFromCloud() {
             showToast('✅ Data synced from cloud');
         } else {
             console.log('No cloud data found for user, initializing...');
-            // Initialize user's cloud document with default data
             await saveDataToCloud();
             showToast('📁 Cloud storage initialized');
         }
