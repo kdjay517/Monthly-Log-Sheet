@@ -514,36 +514,28 @@ function loadLocalData() {
 }
 
 async function saveData() {
+    // Always save locally first (data safety)
+    saveLocalData();
+    
     if (currentUser && !isGuestMode && firebaseInitialized) {
         try {
-            // Save to Firestore
-            const batch = db.batch();
-            
-            // Update user projects
-            const userRef = db.collection('users').doc(currentUser.uid);
-            batch.update(userRef, { projects: projectData });
-            
-            // Save work log data
-            Object.keys(workLogData).forEach(dateKey => {
-                const workLogRef = db.collection('workLogs').doc(`${currentUser.uid}_${dateKey}`);
-                batch.set(workLogRef, {
-                    userId: currentUser.uid,
-                    date: dateKey,
-                    entries: workLogData[dateKey],
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+            // Save to single Firestore document
+            await db.collection('workLogs').doc(currentUser.uid).set({
+                entries: workLogData,
+                projects: projectData,
+                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
             });
-            
-            await batch.commit();
+            showMessage('✅ Saved to cloud', 'success');
         } catch (error) {
-            console.error('Error saving to cloud:', error);
-            showToast('Error saving to cloud. Data saved locally.');
-            saveLocalData();
+            console.error('Cloud save failed:', error);
+            showMessage('⚠️ Saved locally (Cloud sync failed)', 'warning');
         }
     } else {
-        saveLocalData();
+        showMessage('💾 Saved locally', 'info');
     }
 }
+
+
 
 function saveLocalData() {
     localStorage.setItem('workLogData', JSON.stringify(workLogData));
