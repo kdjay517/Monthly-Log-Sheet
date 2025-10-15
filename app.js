@@ -1,4 +1,4 @@
-// Firebase Configuration
+// Firebase Configuration - COMPLETE REWRITE WITH MULTI-DEVICE CLOUD SYNC FIXES
 const firebaseConfig = {
     apiKey: "AIzaSyD0fCY4dwc0igmcTYJOU2rRGQ0ERSVz2l4",
     authDomain: "daily-work-log-tracker.firebaseapp.com",
@@ -160,13 +160,15 @@ function showLoadingIndicator() {
     }
 }
 
-function initializeAuth() {
+// CRITICAL FIX: Made initializeAuth async to properly handle await
+async function initializeAuth() {
     console.log('Initializing auth, Firebase initialized:', firebaseInitialized);
     
     hideLoadingIndicator();
     
     if (firebaseInitialized) {
-        auth.onAuthStateChanged(user => {
+        // FIXED: Enhanced auth state listener with proper async handling
+        auth.onAuthStateChanged(async user => {
             console.log('Auth state changed:', user ? 'User logged in' : 'No user');
             hideLoadingIndicator();
             
@@ -174,9 +176,9 @@ function initializeAuth() {
                 currentUser = user;
                 isGuestMode = false;
                 showMainApp();
-                //loadUserData();
+                // CRITICAL FIX: Load ALL user data from cloud on every login
                 try {
-                    await loadUserDataFromCloud(); // ✅ FIXED: await in async function
+                    await loadUserDataFromCloud();
                 } catch (error) {
                     console.error('Error loading user data:', error);
                     showToast('⚠️ Error loading cloud data, using local data');
@@ -341,6 +343,7 @@ async function handleLogin() {
         await auth.signInWithEmailAndPassword(email, password);
         hideAuthErrors('loginErrors');
         showToast('Login successful');
+        // Note: loadUserDataFromCloud() will be called automatically by onAuthStateChanged
     } catch (error) {
         showAuthErrors('loginErrors', [getAuthErrorMessage(error.code)]);
     } finally {
@@ -380,16 +383,21 @@ async function handleRegister() {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         await userCredential.user.updateProfile({ displayName: name });
         
-        // Initialize user data in Firestore
-        await db.collection('users').doc(userCredential.user.uid).set({
-            name: name,
-            email: email,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            projects: projectData
+        // UPDATED: Initialize user with simplified single-document structure
+        await db.collection('workLogs').doc(userCredential.user.uid).set({
+            entries: {},
+            projects: projectData,
+            userInfo: {
+                name: name,
+                email: email,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            },
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
         });
         
         hideAuthErrors('registerErrors');
         showToast('Account created successfully');
+        // Note: loadUserDataFromCloud() will be called automatically by onAuthStateChanged
     } catch (error) {
         showAuthErrors('registerErrors', [getAuthErrorMessage(error.code)]);
     } finally {
@@ -460,43 +468,66 @@ function showMainApp() {
     selectDate(today);
 }
 
-// Data management functions
-async function loadUserData() {
-    if (!currentUser || !firebaseInitialized) return;
+// NEW FUNCTION: Load ALL user data from cloud - CRITICAL FIX for multi-device sync
+async function loadUserDataFromCloud() {
+    if (!currentUser || !firebaseInitialized || isGuestMode) {
+        console.log('Skipping cloud data load - not applicable');
+        return;
+    }
     
+    console.log('Loading ALL user data from cloud for:', currentUser.uid);
     showLoadingIndicator();
     
     try {
-        // Load user projects
-        const userDoc = await db.collection('users').doc(currentUser.uid).get();
-        if (userDoc.exists) {
-            const userData = userDoc.data();
-            if (userData.projects) {
-                projectData = userData.projects;
+        // Load from single document structure
+        const doc = await db.collection('workLogs').doc(currentUser.uid).get();
+        
+        if (doc.exists()) {
+            const cloudData = doc.data();
+            console.log('Cloud data loaded:', cloudData);
+            
+            // Load work log entries
+            if (cloudData.entries) {
+                workLogData = cloudData.entries;
+                console.log('Loaded work log entries for dates:', Object.keys(workLogData));
             }
+            
+            // Load projects if available
+            if (cloudData.projects) {
+                projectData = cloudData.projects;
+                console.log('Loaded projects:', projectData.length);
+            }
+            
+            // Update UI with loaded data
+            populateProjectDropdown();
+            renderCalendar();
+            
+            // If a date is selected, refresh the entries
+            if (selectedDate) {
+                renderDailyEntries();
+                updateDailyStats();
+            }
+            
+            showToast('✅ Data synced from cloud');
+        } else {
+            console.log('No cloud data found for user, initializing...');
+            // Initialize user's cloud document with default data
+            await saveDataToCloud();
+            showToast('📁 Cloud storage initialized');
         }
         
-        // Load work log data
-        const workLogSnapshot = await db.collection('workLogs')
-            .where('userId', '==', currentUser.uid)
-            .get();
-        
-        workLogData = {};
-        workLogSnapshot.forEach(doc => {
-            const data = doc.data();
-            workLogData[data.date] = data.entries;
-        });
-        
-        populateProjectDropdown();
-        renderCalendar();
-        
     } catch (error) {
-        console.error('Error loading user data:', error);
-        showToast('Error loading data. Using local storage.');
+        console.error('Error loading from cloud:', error);
+        showToast('⚠️ Error loading cloud data, using local data');
         loadLocalData();
     } finally {
         hideLoadingIndicator();
     }
+}
+
+// LEGACY: Keep for backward compatibility but redirect to new function
+async function loadUserData() {
+    await loadUserDataFromCloud();
 }
 
 function loadLocalData() {
@@ -520,45 +551,51 @@ function loadLocalData() {
     }
 }
 
+// NEW FUNCTION: Save all data to single cloud document
 async function saveDataToCloud() {
-    // Save everything to single Firestore document
-    await db.collection('workLogs').doc(currentUser.uid).set({
-        entries: workLogData,      // All work entries
-        projects: projectData,     // All projects
-        lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
-        userEmail: currentUser.email
-    });
+    if (!currentUser || !firebaseInitialized || isGuestMode) return false;
+    
+    try {
+        console.log('Saving all data to cloud for user:', currentUser.uid);
+        
+        // Save everything in single document
+        await db.collection('workLogs').doc(currentUser.uid).set({
+            entries: workLogData,
+            projects: projectData,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+            userEmail: currentUser.email
+        });
+        
+        console.log('Successfully saved all data to cloud');
+        return true;
+    } catch (error) {
+        console.error('Error saving to cloud:', error);
+        return false;
+    }
 }
 
-
+// UPDATED: Enhanced save function with proper cloud sync
 async function saveData() {
-    saveLocalData(); // Always save locally first
+    // Always save locally first (data safety)
+    saveLocalData();
     
     if (currentUser && !isGuestMode && firebaseInitialized) {
+        console.log('Attempting to save to cloud...');
         const cloudSaveSuccess = await saveDataToCloud();
+        
         if (cloudSaveSuccess) {
             showToast('✅ Saved and synced to cloud');
         } else {
             showToast('⚠️ Saved locally (Cloud sync failed - will retry)');
         }
+    } else {
+        if (isGuestMode) {
+            showToast('💾 Saved locally (Guest mode)');
+        } else {
+            showToast('💾 Saved locally');
+        }
     }
 }
-
-async function loadUserDataFromCloud() {
-    // Loads ALL user data from single Firestore document
-    const doc = await db.collection('workLogs').doc(currentUser.uid).get();
-    if (doc.exists()) {
-        const cloudData = doc.data();
-        workLogData = cloudData.entries; // Load all entries
-        projectData = cloudData.projects; // Load projects
-        // Update UI immediately
-        populateProjectDropdown();
-        renderCalendar();
-        showToast('✅ Data synced from cloud');
-    }
-}
-
-
 
 function saveLocalData() {
     localStorage.setItem('workLogData', JSON.stringify(workLogData));
@@ -567,6 +604,8 @@ function saveLocalData() {
 
 // Calendar functions
 function renderCalendar() {
+    if (!elements.calendarGrid || !elements.currentMonth) return;
+    
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     
@@ -655,6 +694,8 @@ function selectDate(date) {
 
 // Project management functions
 function populateProjectDropdown() {
+    if (!elements.project) return;
+    
     elements.project.innerHTML = '<option value="">Select project...</option>';
     
     projectData.forEach(proj => {
@@ -666,16 +707,20 @@ function populateProjectDropdown() {
 }
 
 function showProjectModal() {
+    if (!elements.projectModal) return;
     elements.projectModal.classList.remove('hidden');
     renderProjectsList();
 }
 
 function hideProjectModal() {
+    if (!elements.projectModal) return;
     elements.projectModal.classList.add('hidden');
     clearProjectForm();
 }
 
 function renderProjectsList() {
+    if (!elements.projectsList) return;
+    
     elements.projectsList.innerHTML = '';
     
     if (projectData.length === 0) {
@@ -701,6 +746,8 @@ function renderProjectsList() {
 }
 
 async function handleAddProject() {
+    if (!elements.newProjectId) return;
+    
     const projectId = elements.newProjectId.value.trim();
     const subCode = elements.newSubCode.value.trim();
     const projectTitle = elements.newProjectTitle.value.trim();
@@ -774,47 +821,60 @@ async function deleteProject(projectId) {
 }
 
 function clearProjectForm() {
-    elements.newProjectId.value = '';
-    elements.newSubCode.value = '';
-    elements.newProjectTitle.value = '';
-    elements.newProjectCategory.value = '';
+    if (elements.newProjectId) elements.newProjectId.value = '';
+    if (elements.newSubCode) elements.newSubCode.value = '';
+    if (elements.newProjectTitle) elements.newProjectTitle.value = '';
+    if (elements.newProjectCategory) elements.newProjectCategory.value = '';
 }
 
 // Entry form functions
 function handleEntryTypeChange() {
+    if (!elements.entryType) return;
+    
     const type = elements.entryType.value;
     
     // Reset form
     resetFormFields();
     
     // Show/hide fields based on entry type
-    elements.projectGroup.style.display = type === 'work' ? 'block' : 'none';
-    elements.hoursGroup.style.display = ['work'].includes(type) ? 'block' : 'none';
-    elements.halfDayPeriodGroup.style.display = type === 'halfLeave' ? 'block' : 'none';
+    if (elements.projectGroup) elements.projectGroup.style.display = type === 'work' ? 'block' : 'none';
+    if (elements.hoursGroup) elements.hoursGroup.style.display = ['work'].includes(type) ? 'block' : 'none';
+    if (elements.halfDayPeriodGroup) elements.halfDayPeriodGroup.style.display = type === 'halfLeave' ? 'block' : 'none';
     
     // Set default values
     if (type === 'halfLeave') {
-        elements.hours.value = '4';
-        elements.hours.readOnly = true;
+        if (elements.hours) {
+            elements.hours.value = '4';
+            elements.hours.readOnly = true;
+        }
     } else if (type === 'fullLeave' || type === 'holiday') {
-        elements.hours.value = '8';
-        elements.hours.readOnly = true;
-        elements.hoursGroup.style.display = 'none';
+        if (elements.hours) {
+            elements.hours.value = '8';
+            elements.hours.readOnly = true;
+        }
+        if (elements.hoursGroup) elements.hoursGroup.style.display = 'none';
     } else {
-        elements.hours.readOnly = false;
-        elements.hours.value = '';
+        if (elements.hours) {
+            elements.hours.readOnly = false;
+            elements.hours.value = '';
+        }
     }
 }
 
 function resetFormFields() {
-    elements.project.value = '';
-    elements.hours.value = '';
-    elements.halfDayPeriod.value = '';
-    elements.comments.value = '';
+    if (elements.project) elements.project.value = '';
+    if (elements.hours) elements.hours.value = '';
+    if (elements.halfDayPeriod) elements.halfDayPeriod.value = '';
+    if (elements.comments) elements.comments.value = '';
     hideFormErrors();
 }
 
 async function handleAddEntry() {
+    if (!selectedDate) {
+        showFormErrors(['Please select a date first']);
+        return;
+    }
+
     const entryData = gatherFormData();
     
     if (!validateEntry(entryData)) {
@@ -851,11 +911,11 @@ async function handleAddEntry() {
 
 function gatherFormData() {
     return {
-        type: elements.entryType.value,
-        project: elements.project.value,
-        hours: parseFloat(elements.hours.value) || 0,
-        halfDayPeriod: elements.halfDayPeriod.value,
-        comments: elements.comments.value.trim(),
+        type: elements.entryType ? elements.entryType.value : '',
+        project: elements.project ? elements.project.value : '',
+        hours: elements.hours ? parseFloat(elements.hours.value) || 0 : 0,
+        halfDayPeriod: elements.halfDayPeriod ? elements.halfDayPeriod.value : '',
+        comments: elements.comments ? elements.comments.value.trim() : '',
         timestamp: new Date().toISOString()
     };
 }
@@ -899,6 +959,8 @@ function validateEntry(entryData) {
 }
 
 function validateDailyHours(newEntry) {
+    if (!selectedDate) return true;
+    
     const dateKey = formatDateKey(selectedDate);
     const existingEntries = workLogData[dateKey] || [];
     
@@ -930,6 +992,8 @@ function validateDailyHours(newEntry) {
 }
 
 function validateConflicts(newEntry) {
+    if (!selectedDate) return true;
+    
     const dateKey = formatDateKey(selectedDate);
     const existingEntries = workLogData[dateKey] || [];
     
@@ -969,6 +1033,8 @@ function validateConflicts(newEntry) {
 }
 
 function validateHours() {
+    if (!elements.hours || !elements.entryType) return;
+    
     const value = parseFloat(elements.hours.value);
     const type = elements.entryType.value;
     
@@ -985,6 +1051,8 @@ function validateHours() {
 
 // Entry display functions
 function renderDailyEntries() {
+    if (!elements.entriesList) return;
+    
     if (!selectedDate) {
         elements.entriesList.innerHTML = `
             <div class="no-entries">
@@ -1051,10 +1119,14 @@ function createEntryHTML(entry) {
 }
 
 function updateEntriesCount(count) {
-    elements.entriesCount.textContent = `${count} ${count === 1 ? 'entry' : 'entries'}`;
+    if (elements.entriesCount) {
+        elements.entriesCount.textContent = `${count} ${count === 1 ? 'entry' : 'entries'}`;
+    }
 }
 
 function editEntry(entryId) {
+    if (!selectedDate) return;
+    
     const dateKey = formatDateKey(selectedDate);
     const entry = workLogData[dateKey].find(e => e.id === entryId);
     
@@ -1063,28 +1135,32 @@ function editEntry(entryId) {
     editingEntry = entry;
     
     // Populate form with entry data
-    elements.entryType.value = entry.type;
+    if (elements.entryType) elements.entryType.value = entry.type;
     handleEntryTypeChange();
     
-    elements.project.value = entry.project || '';
-    elements.hours.value = entry.hours || '';
-    elements.halfDayPeriod.value = entry.halfDayPeriod || '';
-    elements.comments.value = entry.comments || '';
+    if (elements.project) elements.project.value = entry.project || '';
+    if (elements.hours) elements.hours.value = entry.hours || '';
+    if (elements.halfDayPeriod) elements.halfDayPeriod.value = entry.halfDayPeriod || '';
+    if (elements.comments) elements.comments.value = entry.comments || '';
     
     // Update form UI
-    elements.addEntryBtn.innerHTML = '<span class="btn-text">Update Entry</span>';
-    elements.cancelEntryBtn.style.display = 'inline-flex';
+    if (elements.addEntryBtn) elements.addEntryBtn.innerHTML = '<span class="btn-text">Update Entry</span>';
+    if (elements.cancelEntryBtn) elements.cancelEntryBtn.style.display = 'inline-flex';
     
     showToast('Edit mode activated');
 }
 
 async function deleteEntry(entryId) {
+    if (!elements.confirmModal) return;
+    
     const modal = elements.confirmModal;
     modal.classList.remove('hidden');
     modal.dataset.entryId = entryId;
 }
 
 async function confirmDelete() {
+    if (!elements.confirmModal || !selectedDate) return;
+    
     const entryId = elements.confirmModal.dataset.entryId;
     const dateKey = formatDateKey(selectedDate);
     
@@ -1105,6 +1181,8 @@ async function confirmDelete() {
 }
 
 function cancelDelete() {
+    if (!elements.confirmModal) return;
+    
     elements.confirmModal.classList.add('hidden');
     elements.confirmModal.dataset.entryId = '';
 }
@@ -1112,19 +1190,21 @@ function cancelDelete() {
 function cancelEdit() {
     editingEntry = null;
     resetForm();
-    elements.addEntryBtn.innerHTML = '<span class="btn-text">Add Entry</span>';
-    elements.cancelEntryBtn.style.display = 'none';
+    if (elements.addEntryBtn) elements.addEntryBtn.innerHTML = '<span class="btn-text">Add Entry</span>';
+    if (elements.cancelEntryBtn) elements.cancelEntryBtn.style.display = 'none';
     showToast('Edit cancelled');
 }
 
 function resetForm() {
-    elements.entryType.value = '';
+    if (elements.entryType) elements.entryType.value = '';
     handleEntryTypeChange();
     hideFormErrors();
 }
 
 // Utility functions
 function updateSelectedDateDisplay() {
+    if (!elements.selectedDateDisplay) return;
+    
     if (selectedDate) {
         const formatted = new Intl.DateTimeFormat('en-US', {
             weekday: 'long',
@@ -1139,10 +1219,14 @@ function updateSelectedDateDisplay() {
 }
 
 function updateDailyStats() {
+    if (!elements.totalHours) return;
+    
     if (!selectedDate) {
         elements.totalHours.textContent = '0';
-        elements.validationWarning.textContent = '';
-        elements.validationWarning.style.display = 'none';
+        if (elements.validationWarning) {
+            elements.validationWarning.textContent = '';
+            elements.validationWarning.style.display = 'none';
+        }
         return;
     }
     
@@ -1157,26 +1241,34 @@ function updateDailyStats() {
     elements.totalHours.textContent = totalHours;
     
     // Show validation warning
-    if (totalHours > 8) {
-        elements.validationWarning.textContent = '⚠️ Exceeds 8-hour daily limit';
-        elements.validationWarning.style.display = 'block';
-    } else {
-        elements.validationWarning.textContent = '';
-        elements.validationWarning.style.display = 'none';
+    if (elements.validationWarning) {
+        if (totalHours > 8) {
+            elements.validationWarning.textContent = '⚠️ Exceeds 8-hour daily limit';
+            elements.validationWarning.style.display = 'block';
+        } else {
+            elements.validationWarning.textContent = '';
+            elements.validationWarning.style.display = 'none';
+        }
     }
 }
 
 function showEntryForm() {
-    elements.entryForm.style.display = 'block';
+    if (elements.entryForm) {
+        elements.entryForm.style.display = 'block';
+    }
 }
 
 function showFormErrors(errors) {
-    elements.formErrors.innerHTML = errors.join('<br>');
-    elements.formErrors.classList.add('show');
+    if (elements.formErrors) {
+        elements.formErrors.innerHTML = errors.join('<br>');
+        elements.formErrors.classList.add('show');
+    }
 }
 
 function hideFormErrors() {
-    elements.formErrors.classList.remove('show');
+    if (elements.formErrors) {
+        elements.formErrors.classList.remove('show');
+    }
 }
 
 function showAuthErrors(elementId, errors) {
@@ -1195,16 +1287,18 @@ function hideAuthErrors(elementId) {
 }
 
 function showToast(message) {
-    elements.toastMessage.textContent = message;
-    elements.toast.classList.remove('hidden');
-    elements.toast.classList.add('show');
-    
-    setTimeout(() => {
-        elements.toast.classList.remove('show');
+    if (elements.toastMessage) elements.toastMessage.textContent = message;
+    if (elements.toast) {
+        elements.toast.classList.remove('hidden');
+        elements.toast.classList.add('show');
+        
         setTimeout(() => {
-            elements.toast.classList.add('hidden');
-        }, 300);
-    }, 3000);
+            elements.toast.classList.remove('show');
+            setTimeout(() => {
+                elements.toast.classList.add('hidden');
+            }, 300);
+        }, 3000);
+    }
 }
 
 function exportMonthData() {
