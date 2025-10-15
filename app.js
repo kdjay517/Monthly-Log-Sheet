@@ -520,25 +520,27 @@ function loadLocalData() {
     }
 }
 
+async function saveDataToCloud() {
+    // Save everything to single Firestore document
+    await db.collection('workLogs').doc(currentUser.uid).set({
+        entries: workLogData,      // All work entries
+        projects: projectData,     // All projects
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+        userEmail: currentUser.email
+    });
+}
+
+
 async function saveData() {
-    // Always save locally first (data safety)
-    saveLocalData();
+    saveLocalData(); // Always save locally first
     
     if (currentUser && !isGuestMode && firebaseInitialized) {
-        try {
-            // Save to single Firestore document
-            await db.collection('workLogs').doc(currentUser.uid).set({
-                entries: workLogData,
-                projects: projectData,
-                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            showMessage('✅ Saved to cloud', 'success');
-        } catch (error) {
-            console.error('Cloud save failed:', error);
-            showMessage('⚠️ Saved locally (Cloud sync failed)', 'warning');
+        const cloudSaveSuccess = await saveDataToCloud();
+        if (cloudSaveSuccess) {
+            showToast('✅ Saved and synced to cloud');
+        } else {
+            showToast('⚠️ Saved locally (Cloud sync failed - will retry)');
         }
-    } else {
-        showMessage('💾 Saved locally', 'info');
     }
 }
 
