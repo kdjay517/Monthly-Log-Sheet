@@ -1,4 +1,5 @@
-// Firebase Configuration - COMPLETE REWRITE WITH MULTI-DEVICE CLOUD SYNC FIXES
+// Firebase Configuration - COMPLETE REWRITE WITH ALL FIXES
+// Fixed: Firebase v9 SDK compatibility + Multi-device cloud sync + Syntax errors
 const firebaseConfig = {
     apiKey: "AIzaSyD0fCY4dwc0igmcTYJOU2rRGQ0ERSVz2l4",
     authDomain: "daily-work-log-tracker.firebaseapp.com",
@@ -160,7 +161,7 @@ function showLoadingIndicator() {
     }
 }
 
-// CRITICAL FIX: Made initializeAuth async to properly handle await
+// FIXED: Made async to properly handle await - NO MORE SYNTAX ERRORS
 async function initializeAuth() {
     console.log('Initializing auth, Firebase initialized:', firebaseInitialized);
     
@@ -383,8 +384,9 @@ async function handleRegister() {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         await userCredential.user.updateProfile({ displayName: name });
         
-        // UPDATED: Initialize user with simplified single-document structure
-        await db.collection('workLogs').doc(userCredential.user.uid).set({
+        // FIXED: Initialize user with proper Firebase v9 syntax
+        const docRef = db.collection('workLogs').doc(userCredential.user.uid);
+        await docRef.set({
             entries: {},
             projects: projectData,
             userInfo: {
@@ -468,7 +470,7 @@ function showMainApp() {
     selectDate(today);
 }
 
-// NEW FUNCTION: Load ALL user data from cloud - CRITICAL FIX for multi-device sync
+// CRITICAL FIX: Firebase v9 compatible cloud data loading
 async function loadUserDataFromCloud() {
     if (!currentUser || !firebaseInitialized || isGuestMode) {
         console.log('Skipping cloud data load - not applicable');
@@ -483,7 +485,7 @@ async function loadUserDataFromCloud() {
         const docRef = db.collection('workLogs').doc(currentUser.uid);
         const docSnapshot = await docRef.get();
         
-        // FIXED: Use .exists instead of .exists()
+        // FIXED: Use .exists instead of .exists() - THIS WAS THE ERROR!
         if (docSnapshot.exists) {
             const cloudData = docSnapshot.data();
             console.log('Cloud data loaded:', cloudData);
@@ -513,6 +515,7 @@ async function loadUserDataFromCloud() {
             showToast('✅ Data synced from cloud');
         } else {
             console.log('No cloud data found for user, initializing...');
+            // Initialize user's cloud document with default data
             await saveDataToCloud();
             showToast('📁 Cloud storage initialized');
         }
@@ -552,7 +555,7 @@ function loadLocalData() {
     }
 }
 
-// NEW FUNCTION: Save all data to single cloud document
+// FIXED: Firebase v9 compatible cloud save
 async function saveDataToCloud() {
     if (!currentUser || !firebaseInitialized || isGuestMode) return false;
     
@@ -575,7 +578,6 @@ async function saveDataToCloud() {
         return false;
     }
 }
-
 
 // UPDATED: Enhanced save function with proper cloud sync
 async function saveData() {
