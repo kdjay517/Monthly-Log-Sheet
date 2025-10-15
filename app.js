@@ -175,7 +175,13 @@ function initializeAuth() {
                 isGuestMode = false;
                 showMainApp();
                 //loadUserData();
-                loadUserDataFromCloud();
+                try {
+                    await loadUserDataFromCloud(); // ✅ FIXED: await in async function
+                } catch (error) {
+                    console.error('Error loading user data:', error);
+                    showToast('⚠️ Error loading cloud data, using local data');
+                    loadLocalData();
+                }
             } else if (!isGuestMode) {
                 showAuthScreen();
             }
