@@ -559,8 +559,9 @@ async function saveDataToCloud() {
     try {
         console.log('Saving all data to cloud for user:', currentUser.uid);
         
-        // Save everything in single document
-        await db.collection('workLogs').doc(currentUser.uid).set({
+        // FIXED: Use proper Firebase v9 syntax  
+        const docRef = db.collection('workLogs').doc(currentUser.uid);
+        await docRef.set({
             entries: workLogData,
             projects: projectData,
             lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
@@ -574,6 +575,7 @@ async function saveDataToCloud() {
         return false;
     }
 }
+
 
 // UPDATED: Enhanced save function with proper cloud sync
 async function saveData() {
