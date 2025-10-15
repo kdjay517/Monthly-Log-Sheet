@@ -175,7 +175,7 @@ function initializeAuth() {
                 isGuestMode = false;
                 showMainApp();
                 //loadUserData();
-                await loadUserDataFromCloud();
+                loadUserDataFromCloud();
             } else if (!isGuestMode) {
                 showAuthScreen();
             }
