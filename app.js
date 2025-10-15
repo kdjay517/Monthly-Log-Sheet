@@ -174,7 +174,8 @@ function initializeAuth() {
                 currentUser = user;
                 isGuestMode = false;
                 showMainApp();
-                loadUserData();
+                //loadUserData();
+                await loadUserDataFromCloud();
             } else if (!isGuestMode) {
                 showAuthScreen();
             }
@@ -532,6 +533,20 @@ async function saveData() {
         }
     } else {
         showMessage('💾 Saved locally', 'info');
+    }
+}
+
+async function loadUserDataFromCloud() {
+    // Loads ALL user data from single Firestore document
+    const doc = await db.collection('workLogs').doc(currentUser.uid).get();
+    if (doc.exists()) {
+        const cloudData = doc.data();
+        workLogData = cloudData.entries; // Load all entries
+        projectData = cloudData.projects; // Load projects
+        // Update UI immediately
+        populateProjectDropdown();
+        renderCalendar();
+        showToast('✅ Data synced from cloud');
     }
 }
 
